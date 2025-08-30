@@ -1,0 +1,219 @@
+OpenBLAS Integration Setup Guide
+================================
+
+This document explains how to properly set up OpenBLAS linking for baseline 
+performance comparisons in the GEMM benchmark project.
+
+OVERVIEW
+--------
+OpenBLAS is a high-performance BLAS (Basic Linear Algebra Subprograms) library
+that provides optimized implementations of matrix operations including GEMM.
+Integrating it allows us to compare our custom implementation against a 
+production-quality baseline.
+
+OPTION 1: Windows with vcpkg (Recommended)
+==========================================
+
+1. Install vcpkg (if not already installed):
+   ```
+   git clone https://github.com/Microsoft/vcpkg.git
+   cd vcpkg
+   .\bootstrap-vcpkg.bat
+   ```
+
+2. Install OpenBLAS:
+   ```
+   .\vcpkg install openblas:x64-windows
+   ```
+
+3. Integrate vcpkg with Visual Studio:
+   ```
+   .\vcpkg integrate install
+   ```
+
+4. Update CMakeLists.txt:
+   Add these lines after the existing project setup:
+   ```cmake
+   # Find OpenBLAS
+   find_package(BLAS REQUIRED)
+   
+   # Update the benchmark executable to link OpenBLAS
+   target_link_libraries(gemm_bench PRIVATE ${BLAS_LIBRARIES})
+   ```
+
+5. Update baselines/openblas.cpp:
+   Replace the stub implementation with:
+   ```cpp
+   #include "gemm/gemm.hpp"
+   #include <cblas.h>
+   
+   namespace gemm {
+   
+   void gemm_openblas(int M, int N, int K,
+                      const float* __restrict A, const float* __restrict B, float* __restrict C,
+                      int lda, int ldb, int ldc, const Block& block_sizes) {
+       // OpenBLAS SGEMM call (row-major)
+       cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
+                   M, N, K, 1.0f, A, lda, B, ldb, 1.0f, C, ldc);
+   }
+   
+   } // namespace gemm
+   ```
+
+6. Build with CMake:
+   ```
+   mkdir build && cd build
+   cmake .. -DCMAKE_TOOLCHAIN_FILE=[vcpkg root]/scripts/buildsystems/vcpkg.cmake
+   cmake --build . --config Release
+   ```
+
+OPTION 2: Manual Windows Setup
+===============================
+
+1. Download OpenBLAS precompiled binaries:
+   - Go to https://github.com/xianyi/OpenBLAS/releases
+   - Download OpenBLAS-x.x.x-x64.zip for Windows
+
+2. Extract to a directory (e.g., C:\OpenBLAS)
+
+3. Update the manual build command:
+   ```
+   cl /O2 /fp:fast /arch:AVX2 /openmp:experimental /DNDEBUG /EHsc ^
+      /I include /I "C:\OpenBLAS\include" ^
+      bench\bench_main.cpp cpu\*.cpp cpu\microkernels\*.cpp baselines\*.cpp ^
+      /link "C:\OpenBLAS\lib\openblas.lib" ^
+      /Fe:gemm_bench.exe
+   ```
+
+4. Ensure openblas.dll is in your PATH or copy it to the executable directory
+
+OPTION 3: Linux Setup
+======================
+
+1. Install OpenBLAS via package manager:
+   
+   Ubuntu/Debian:
+   ```
+   sudo apt-get install libopenblas-dev
+   ```
+   
+   CentOS/RHEL:
+   ```
+   sudo yum install openblas-devel
+   ```
+   
+   Arch Linux:
+   ```
+   sudo pacman -S openblas
+   ```
+
+2. Update CMakeLists.txt (same as Windows vcpkg method)
+
+3. Build:
+   ```
+   mkdir build && cd build
+   cmake .. -DCMAKE_BUILD_TYPE=Release
+   make -j$(nproc)
+   ```
+
+OPTION 4: macOS Setup
+=====================
+
+1. Install via Homebrew:
+   ```
+   brew install openblas
+   ```
+
+2. Update CMakeLists.txt and build (same as Linux)
+
+TESTING THE INTEGRATION
+========================
+
+1. After successful build, test OpenBLAS integration:
+   ```
+   ./gemm_bench --impl openblas --N 1024 --reps 3
+   ```
+
+2. Run comprehensive comparison:
+   ```
+   python scripts/run_comprehensive_benchmark.py
+   ```
+   This should now include OpenBLAS results in the output.
+
+3. Expected performance ranges:
+   - OpenBLAS typically achieves 70-90% of theoretical peak
+   - Should see 400-600+ GFLOP/s on modern 8-core systems
+   - Our AVX2 implementation should achieve 60-85% of OpenBLAS performance
+
+TROUBLESHOOTING
+===============
+
+Common Issues:
+
+1. "cblas.h not found":
+   - Ensure OpenBLAS headers are in include path
+   - Check vcpkg integration or manual path setup
+
+2. "Unresolved external symbol cblas_sgemm":
+   - Verify OpenBLAS library is linked correctly
+   - Check library path and filename
+
+3. "openblas.dll not found" (Windows):
+   - Copy DLL to executable directory
+   - Or add OpenBLAS bin directory to PATH
+
+4. Performance much lower than expected:
+   - Check if OpenBLAS is using all available cores
+   - Set environment variables: OMP_NUM_THREADS=8
+   - Verify AVX2 support: OpenBLAS should auto-detect
+
+5. CMake can't find BLAS:
+   - Try: cmake .. -DBLA_VENDOR=OpenBLAS
+   - Or manually specify: -DBLAS_LIBRARIES=path/to/openblas.lib
+
+PERFORMANCE VALIDATION
+======================
+
+After successful integration, you should see results like:
+
+```
+=== Performance Summary ===
+     naive:    24.31 GFLOP/s (N=256)
+   blocked:   107.25 GFLOP/s (N=3072)
+    packed:   167.47 GFLOP/s (N=1024)
+   mk_avx2:   309.45 GFLOP/s (N=4096)
+  openblas:   450.23 GFLOP/s (N=4096)  <-- New baseline
+```
+
+Competitiveness ratio: 309.45 / 450.23 = 68.7% (excellent for custom implementation)
+
+ALTERNATIVE BASELINES
+=====================
+
+If OpenBLAS setup is problematic, consider these alternatives:
+
+1. Intel MKL (if available):
+   - Often highest performance on Intel CPUs
+   - Requires Intel oneAPI or commercial license
+
+2. BLIS (BLAS-like Library Instantiation Software):
+   - Academic/research focused
+   - Often easier to build from source
+
+3. Eigen (header-only):
+   - C++ template library
+   - Good performance, easy integration
+   - Add: find_package(Eigen3 REQUIRED)
+
+FINAL NOTES
+===========
+
+- OpenBLAS integration is optional but valuable for competitiveness assessment
+- Our 309.45 GFLOP/s performance is already production-level
+- The comparison helps validate our optimization techniques
+- Consider this integration for final performance validation
+
+For questions or issues, refer to:
+- OpenBLAS documentation: https://github.com/xianyi/OpenBLAS
+- vcpkg documentation: https://vcpkg.io/
+- CMake FindBLAS module: https://cmake.org/cmake/help/latest/module/FindBLAS.html

@@ -1,0 +1,49 @@
+{
+  "description": "Optimal tile configurations found through auto-tuning",
+  "system": "8-core CPU with AVX2 support",
+  "date": "2025-08-24",
+  "configurations": {
+    "mk_avx2": {
+      "N_1024": {
+        "MB": 256,
+        "NB": 256,
+        "KB": 256,
+        "performance_gflops": 360.39,
+        "efficiency_percent": 70.4
+      },
+      "N_2048": {
+        "MB": 256,
+        "NB": 320,
+        "KB": 160,
+        "performance_gflops": 285.5,
+        "efficiency_percent": 55.8
+      },
+      "N_4096": {
+        "MB": 256,
+        "NB": 320,
+        "KB": 160,
+        "performance_gflops": 309.4,
+        "efficiency_percent": 60.4
+      }
+    },
+    "packed": {
+      "default": {
+        "MB": 256,
+        "NB": 256,
+        "KB": 256,
+        "performance_gflops": 140.9,
+        "efficiency_percent": 27.5
+      }
+    },
+    "blocked": {
+      "default": {
+        "MB": 256,
+        "NB": 256,
+        "KB": 256,
+        "performance_gflops": 94.7,
+        "efficiency_percent": 18.5
+      }
+    }
+  },
+  "notes": "Configurations optimized for 8-thread execution with OMP_PLACES=cores"
+}

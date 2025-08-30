@@ -1,0 +1,6 @@
+impl,M,N,K,threads,MB,NB,KB,time_ms,gflops,relerr,notes
+naive,256,256,256,1,256,256,256,11.254,2.98,0.0e+00,baseline
+blocked,256,256,256,8,256,256,256,2.008,16.71,0.0e+00,blocked+openmp
+packed,512,512,512,8,256,256,256,3.407,78.80,0.0e+00,packed+openmp
+mk_avx2,1024,1024,1024,8,256,256,256,5.959,360.39,0.0e+00,mk_avx2+openmp
+mk_avx2,2048,2048,2048,8,256,320,160,69.462,247.33,0.0e+00,mk_avx2+openmp
